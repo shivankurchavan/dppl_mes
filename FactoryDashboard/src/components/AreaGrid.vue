@@ -23,8 +23,8 @@ const props = defineProps({
 
 const emit = defineEmits(['machine-card-clicked']);
 
-const handleCardClick = (machineId) => {
-  emit('machine-card-clicked', machineId);
+const handleCardClick = (id) => {
+  emit('machine-card-clicked', id);
 };
 </script>
 

@@ -40,9 +40,10 @@ const machines = ref([]);
 // Initialize createListResource for Machine DocType
 const machineResource = createListResource({
   doctype: 'Machine',
-  fields: ['name', 'machine_name', 'is_active', 'factory', 'area', 'oem_code'],
+  fields: ['machine_name', 'is_active', 'factory', 'area', 'oem_code'], // Updated fields
   orderBy: 'machine_name',
-  auto: true, // We'll trigger fetch manually to handle filters
+  auto: false,
+  filters: {},
 });
 
 // Watch for filter changes and refetch data
@@ -52,12 +53,9 @@ watch(
     const filters = {};
     if (newFilters.factory) filters.factory = newFilters.factory;
     if (newFilters.area) filters.area = newFilters.area;
-    if (newFilters.status) filters.is_active = newFilters.status === 'running' ? 1 : 0;
 
-    machineResource.setValue({
+    machineResource.reload({
       filters,
-    }).then(() => {
-      machineResource.submit();
     }).catch((error) => {
       console.error('Error applying filters:', error);
     });
@@ -71,18 +69,16 @@ watch(
   (newData) => {
     if (newData) {
       machines.value = newData.map(machine => ({
-        id: machine.name, // Use 'name' as the unique ID
-        name: machine.machine_name, // Map machine_name to name
-        status: machine.is_active ? 'running' : 'stopped', // Map is_active to status
+        id: machine.machine_name, // Use machine_name as id
+        name: machine.machine_name,
+        status: machine.is_active ? 'running' : 'stopped',
         factory: machine.factory,
         area: machine.area,
         oem_code: machine.oem_code,
-        jobName: 'Job Name Dummy', // Placeholder, as Job Card data is not fetched
-        actualOutput: 0, // Placeholder
-        targetOutput: 0, // Placeholder
       }));
     }
-  }
+  },
+  { immediate: true }
 );
 
 const factoryTitle = computed(() => {
@@ -93,8 +89,7 @@ const filteredMachines = computed(() => {
   return machines.value.filter(machine => {
     const factoryMatch = !props.selectedFilters.factory || machine.factory === props.selectedFilters.factory;
     const areaMatch = !props.selectedFilters.area || machine.area === props.selectedFilters.area;
-    const statusMatch = !props.selectedFilters.status || machine.status === props.selectedFilters.status;
-    return factoryMatch && areaMatch && statusMatch;
+    return factoryMatch && areaMatch;
   });
 });
 
@@ -115,6 +110,7 @@ const handleMachineCardClick = (machineId) => {
 </script>
 
 <style scoped>
+/* Existing styles unchanged */
 .dashboard-container {
   padding: 20px;
   height: calc(100vh - 120px);

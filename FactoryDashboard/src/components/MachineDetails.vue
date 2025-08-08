@@ -2,116 +2,192 @@
   <div class="machine-details-container">
     <h2 class="page-title">Machine Details</h2>
 
-    <!-- Top Section -->
-    <div class="top-section">
-      <img :src="machineImage" alt="Machine Image" class="machine-image" />
-      <div class="info-panel">
-        <p><strong>ID:</strong> {{ machine?.id }}</p>
-        <p><strong>Status:</strong> <span :class="['status', machine?.status]">{{ machine?.status }}</span></p>
-        <p><strong>Job:</strong> {{ machine?.jobName }}</p>
-        <p><strong>Actual Output:</strong> {{ machine?.actualOutput }}</p>
-        <p><strong>Target Output:</strong> {{ machine?.targetOutput }}</p>
+    <!-- Error State -->
+    <!-- <div v-if="error" class="error-message">
+      {{ error }}
+    </div> -->
+    <!-- Loading State -->
+    <div v-if="loading" class="loading-message">
+      Loading machine details...
+    </div>
+    <!-- Data State -->
+    <div v-else-if="machine" class="content">
+      <!-- Top Section -->
+      <div class="top-section">
+        <img :src="machineImage" alt="Machine Image" class="machine-image" />
+        <div class="info-panel">
+          <p><strong>ID:</strong> {{ machine.id }}</p>
+          <p><strong>Name:</strong> {{ machine.name }}</p>
+          <p><strong>Status:</strong> <span :class="['status', machine.status]">{{ machine.status }}</span></p>
+          <p><strong>Factory:</strong> {{ machine.factory }}</p>
+          <p><strong>Area:</strong> {{ machine.area }}</p>
+          <p><strong>OEM Code:</strong> {{ machine.oem_code || 'N/A' }}</p>
+        </div>
+      </div>
+
+      <!-- Table Section -->
+      <div class="table-section">
+        <h3 class="table-title">Downtime Reasons</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Start Time</th>
+              <th>End Time</th>
+              <th>Duration</th>
+              <th>Status</th>
+              <th>Reason</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(entry, index) in visibleTableData" :key="index">
+              <td>{{ entry.created_date }}</td>
+              <td>{{ entry.start_date_time }}</td>
+              <td>{{ entry.end_date_time || 'N/A' }}</td>
+              <td>{{ entry.duration }}</td>
+              <td>{{ entry.status }}</td>
+              <td>{{ entry.reason || 'N/A' }}</td>
+              <td><button class="action-btn">Update Reason</button></td>
+            </tr>
+            <tr class="load-more" v-if="visibleCount < tableData.length">
+              <td colspan="7">
+                <button class="load-more-btn" @click="loadMore">Load More</button>
+              </td>
+            </tr>
+            <tr v-if="tableData.length === 0">
+              <td colspan="7">No downtime records found.</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
-
-    <!-- Table Section -->
-    <div class="table-section">
-      <h3 class="table-title" >Downtime Reasons</h3>
-      <table style="">
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Start Time</th>
-            <th>End Time</th>
-            <th>Duration</th>
-            <th>Status</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(entry, index) in visibleTableData" :key="index">
-            <td>{{ entry.date }}</td>
-            <td>{{ entry.startTime }}</td>
-            <td>{{ entry.endTime }}</td>
-            <td>{{ entry.duration }}</td>
-            <td>{{ entry.status }}</td>
-            <td><button class="action-btn">Update Reason</button></td>
-          </tr>
-          <tr class="load-more" v-if="visibleCount < tableData.length">
-            <td colspan="6">
-              <button class="load-more-btn" @click="loadMore">Load More</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+    <!-- No Data State -->
+    <div v-else class="no-data-message">
+      Machine not found.
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
-import { useRoute } from 'vue-router';
+import { ref, computed, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { createDocumentResource, createListResource } from 'frappe-ui';
 import machineImage from '../assets/image.png';
 
+// Router setup
 const route = useRoute();
-const machine = ref(null);
+const router = useRouter();
+const machineId = computed(() => route.params.id);
 
-const fetchMachineDetails = async (machineId) => {
-  try {
-    const dummyMachines = [
-      { id: 1, name: 'Machine 1', area: 'Area1', status: 'running', jobName: 'Job A', actualOutput: 100, targetOutput: 120, photo: 'https://via.placeholder.com/150' },
-      { id: 2, name: 'Machine 2', area: 'Area1', status: 'stopped', jobName: 'Job B', actualOutput: 80, targetOutput: 100, photo: 'https://via.placeholder.com/150' },
-      { id: 3, name: 'Machine 3', area: 'Area2', status: 'running', jobName: 'Job C', actualOutput: 150, targetOutput: 150, photo: 'https://via.placeholder.com/150' },
-      { id: 4, name: 'Machine 4', area: 'Area2', status: 'maintenance', jobName: 'Job D', actualOutput: 0, targetOutput: 100, photo: 'https://via.placeholder.com/150' },
-      { id: 5, name: 'Machine 5', area: 'Area3', status: 'running', jobName: 'Job E', actualOutput: 200, targetOutput: 180, photo: 'https://via.placeholder.com/150' },
-    ];
-    machine.value = dummyMachines.find(m => m.id === parseInt(machineId));
-  } catch (error) {
-    console.error('Error fetching machine details:', error);
-  }
-};
-
-onMounted(() => {
-  const machineId = route.params.id;
-  if (machineId) {
-    fetchMachineDetails(machineId);
-  }
-});
-
-const tableData = ref([
-  { date: '2025-08-01', startTime: '08:00', endTime: '10:00', duration: '2h', status: 'Running' },
-  { date: '2025-08-01', startTime: '10:30', endTime: '11:00', duration: '30m', status: 'Stopped' },
-  { date: '2025-08-02', startTime: '09:00', endTime: '12:00', duration: '3h', status: 'Running' },
-  { date: '2025-08-03', startTime: '07:45', endTime: '08:30', duration: '45m', status: 'Maintenance' },
-  { date: '2025-08-04', startTime: '13:00', endTime: '15:30', duration: '2.5h', status: 'Running' },
-  { date: '2025-08-01', startTime: '08:00', endTime: '10:00', duration: '2h', status: 'Running' },
-  { date: '2025-08-01', startTime: '10:30', endTime: '11:00', duration: '30m', status: 'Stopped' },
-  { date: '2025-08-02', startTime: '09:00', endTime: '12:00', duration: '3h', status: 'Running' },
-  { date: '2025-08-03', startTime: '07:45', endTime: '08:30', duration: '45m', status: 'Maintenance' },
-  { date: '2025-08-04', startTime: '13:00', endTime: '15:30', duration: '2.5h', status: 'Running' },
-]);
-
+// Reactive state
+const error = ref(null);
+const machine = ref(null); // ✅ Fixed: Uncommented this line
+// const tableData = ref([]);
+const loading = ref(false);
 
 const visibleCount = ref(4);
-
 const visibleTableData = computed(() => {
   return tableData.value.slice(0, visibleCount.value);
 });
 
-function loadMore() {
+const loadMore = () => {
   visibleCount.value += 4;
-}
+};
 
+// ✅ Fixed: Proper resource initialization and data fetching
+watch(
+  () => machineId.value,
+  async (newId) => {
+    if (!newId) {
+      error.value = 'No machine ID provided in the URL.';
+      return;
+    }
+    console.log('Fetching details for machine ID:', newId);
+    // Reset state
+    error.value = null;
+    machine.value = null; // ✅ Fixed: Uncommented this line
+    tableData.value = [];
+    loading.value = true;
+
+    try {
+      // Create machine resource with the actual machine ID
+      const machineResource = createDocumentResource({
+        doctype: 'Machine',
+        name: newId, // Use the actual string value, not computed
+        auto: false,
+      });
+
+      console.log('Machine resource created:', machineResource);
+
+      // ✅ Fixed: Proper downtime resource configuration
+      const downtimeResource = createListResource({
+        doctype: 'Downtime Log',
+        // fields: ['created_date', 'start_date_time', 'end_date_time', 'duration', 'status', 'reason'],
+        // filters: {
+        //   machine: newId // ✅ Fixed: Proper filters object
+        // },
+        // orderBy: 'created_date desc',
+        auto: true,
+      });
+
+      const downtimereason = createListResource({
+        doctype: 'Downtime Reason',
+        auto: true,
+      });
+
+
+      console.log('Downtime resource created:', downtimeResource);
+      
+      // ✅ Fixed: Actually reload the machine resource
+      await machineResource.reload();
+      
+      if (machineResource.doc) {
+        console.log('Machine doc found:', machineResource.doc);
+        
+        // ✅ Fixed: Assign to the reactive machine ref, not a local variable
+        machine.value = {
+          id: machineResource.doc.machine_name,
+          name: machineResource.doc.machine_name,
+          status: machineResource.doc.is_active ? 'running' : 'stopped',
+          factory: machineResource.doc.factory,
+          area: machineResource.doc.area,
+          oem_code: machineResource.doc.oem_code,
+        };
+
+        console.log('Machine value set:', machine.value);
+
+        console.log('Downtime reason resource created:', downtimereason);
+
+
+        // Fetch downtime logs after machine is loaded
+        // await downtimeResource.reload();
+        if (downtimeResource.data) {
+          tableData.value = downtimeResource.data;
+          console.log('Table data set:', tableData.value);
+        }
+      } else {
+        console.log('No machine doc found');
+        error.value = 'Machine not found.';
+      }
+    } catch (err) {
+      error.value = `Failed to fetch machine details: ${err.message}`;
+      console.error('Error fetching machine details:', err);
+    } finally {
+      loading.value = false;
+    }
+  },
+  { immediate: true }
+);
 </script>
 
 <style scoped>
 .machine-details-container {
   padding: 24px;
   font-family: 'Segoe UI', sans-serif;
-
-    max-height: 100vh;        /* Full viewport height */
-  overflow-y: auto;         /* Enable vertical scroll */
-  box-sizing: border-box;   /* Include padding in height */
+  max-height: 100vh;
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .page-title {
@@ -119,6 +195,28 @@ function loadMore() {
   font-weight: 600;
   margin-bottom: 20px;
   color: #2c3e50;
+}
+
+.error-message,
+.loading-message,
+.no-data-message {
+  text-align: center;
+  padding: 20px;
+  font-size: 16px;
+}
+
+.error-message {
+  color: #e74c3c;
+  background-color: #ffe0e0;
+  border-radius: 8px;
+}
+
+.loading-message {
+  color: #666;
+}
+
+.no-data-message {
+  color: #666;
 }
 
 .top-section {
@@ -157,10 +255,12 @@ function loadMore() {
   background-color: #e0ffe5;
   color: #2ecc71;
 }
+
 .status.stopped {
   background-color: #ffe0e0;
   color: #e74c3c;
 }
+
 .status.maintenance {
   background-color: #fff6e0;
   color: #f39c12;
@@ -168,8 +268,7 @@ function loadMore() {
 
 .table-section {
   margin-top: 30px;
-    overflow-y: auto;
-
+  overflow-y: auto;
 }
 
 .table-title {

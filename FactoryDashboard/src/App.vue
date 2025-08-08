@@ -5,7 +5,7 @@
         <div class="navbar-left">
           <!-- Space for logo -->
           <div class="logo-placeholder"></div>
-          <span class="navbar-title">DPPL Factory Dashboard</span>
+          <span class="navbar-title">Factory Dashboard</span>
         </div>
       </nav>
       <nav class="controls-bar">
@@ -24,12 +24,12 @@
             :options="areaOptions"
             @filter-selected="handleFilterSelected('area', $event)"
           />
-          <FilterDropdown 
+          <!-- <FilterDropdown 
             id="status-filter"
             label="Running Status"
             :options="statusOptions"
             @filter-selected="handleFilterSelected('status', $event)"
-          />
+          /> -->
         </div>
       </nav>
     </header>
@@ -40,13 +40,10 @@
 </template>
 
 <script setup>
-// import { session } from "../data/session"
 import { useRouter, useRoute } from 'vue-router';
 import { ref, watch } from 'vue';
 import { createListResource } from 'frappe-ui';
 import FilterDropdown from './components/FilterDropdown.vue';
-
-// console.log(session.user)
 
 const router = useRouter();
 const route = useRoute();
@@ -73,25 +70,17 @@ const goBackToDashboard = () => {
 
 // Fetch factory and area options
 const factoryResource = createListResource({
-  doctype: 'Factory', // Ensure correct case
-  fields: ['factory_name'], // Use 'name' unless 'factory_name' is confirmed
+  doctype: 'Factory',
+  fields: ['factory_name'],
   orderBy: 'factory_name',
   auto: true,
-  onError(error) {
-    errorMessage.value = `Failed to fetch factories: ${error.message || 'Unknown error'} (Check DocType name and permissions)`;
-    console.error('Factory fetch error:', error);
-  },
 });
 
 const areaResource = createListResource({
   doctype: 'Area',
   fields: ['area_name'],
-  orderBy: 'area_name ',
+  orderBy: 'area_name',
   auto: true,
-  onError(error) {
-    errorMessage.value = `Failed to fetch areas: ${error.message || 'Unknown error'} (Check DocType name and permissions)`;
-    console.error('Area fetch error:', error);
-  },
 });
 
 console.log('Factory Resource:', factoryResource);
@@ -99,34 +88,30 @@ console.log('Area Resource:', areaResource);
 
 const factoryOptions = ref([]);
 const areaOptions = ref([]);
-const statusOptions = ref([
-  { value: 'running', text: 'Running' },
-  { value: 'stopped', text: 'Stopped' },
-]);
 
 // Map fetched data to filter options
 watch(() => factoryResource.data, (data) => {
   if (data) {
-    factoryOptions.value = data.map(f => ({ value: f.name, text: f.name }));
+    factoryOptions.value = data.map(f => ({ value: f.factory_name, text: f.factory_name }));
   }
 }, { immediate: true });
 
 watch(() => areaResource.data, (data) => {
   if (data) {
-    areaOptions.value = data.map(a => ({ value: a.name, text: a.name }));
+    areaOptions.value = data.map(a => ({ value: a.area_name, text: a.area_name }));
   }
 }, { immediate: true });
 
 const selectedFilters = ref({
   factory: '',
   area: '',
-  status: '',
 });
 
 const handleFilterSelected = (filterName, value) => {
   selectedFilters.value[filterName] = value;
 };
 </script>
+
 
 <style>
 * {
