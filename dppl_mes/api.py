@@ -2,26 +2,17 @@ import frappe
 import json
 from frappe import _
 from datetime import datetime
+from frappe.utils import now, nowdate, nowtime
+
 
 @frappe.whitelist()
 def create_telemetry():
-    """
-    POST API endpoint to create Telemetry documents
-    Expected payload: {
-        "timestamp": "2025-06-27 10:30:00",  # ISO format or frappe datetime format
-        "device": "device_name",              # Must exist in Device doctype
-        "machine": "machine_name",            # Must exist in Machine doctype  
-        "message": "data or JSON object"      # Will be stored in data field
-    }
-    """
     if frappe.request.method != "POST":
         frappe.throw(_("Only POST requests are allowed"), frappe.PermissionError)
-    
     try:
         # Parse the JSON data from request body
         if not frappe.request.data:
             frappe.throw(_("Request body is empty"))
-            
         data = json.loads(frappe.request.data)
         
         # Extract fields with validation
@@ -37,15 +28,13 @@ def create_telemetry():
         # Validate timestamp format
         try:
             if isinstance(timestamp, str):
-                # Try to parse timestamp to ensure it's valid
                 datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
         except ValueError:
             frappe.throw(_("Invalid timestamp format. Use ISO format (YYYY-MM-DD HH:MM:SS)"))
         
-        # Validate that Device and Machine exist (optional but recommended)
+        # Validate that Device and Machine exist
         if not frappe.db.exists("Device", device):
             frappe.throw(_("Device '{}' does not exist").format(device))
-            
         if not frappe.db.exists("Machine", machine):
             frappe.throw(_("Machine '{}' does not exist").format(machine))
         
@@ -54,23 +43,19 @@ def create_telemetry():
         telemetry.timestamp = timestamp
         telemetry.device = device
         telemetry.machine = machine
-        telemetry.data = message  # This will handle both strings and JSON objects
-        
-        # Insert with proper error handling
+        telemetry.data = message
         telemetry.insert(ignore_permissions=True)
         frappe.db.commit()
 
-        # Add Logic To Provide Job Metrics In Return
-        
+        job_metrics = get_job_metrics_internal_function(machine=machine)
+        metrics_data = job_metrics.get("data", {})
+
         return {
             "status": "success",
-            "message": "Telemetry record created successfully",
-            "telemetry_id": telemetry.name,
+            "message": "Telemetry record created successfully. Sharing job metrics.",
             "data": {
-                "name": telemetry.name,
-                "timestamp": telemetry.timestamp,
-                "device": telemetry.device,
-                "machine": telemetry.machine
+                "machine": machine,
+                "job_metrics": metrics_data
             }
         }
         
@@ -102,77 +87,82 @@ def create_telemetry():
         }
 
 
-# Optional: Bulk create endpoint for multiple telemetry records
-@frappe.whitelist(allow_guest=True)
-def create_telemetry_bulk():
+
+
+@frappe.whitelist()
+def get_job_metrics_internal_function(machine=None):
+    print(f"Fetching job metrics for machine: {machine}")
     """
-    POST API endpoint to create multiple Telemetry documents in bulk
-    Expected payload: {
-        "records": [
-            {
-                "timestamp": "2025-06-27 10:30:00",
-                "device": "device_name", 
-                "machine": "machine_name",
-                "message": "data"
-            },
-            // ... more records
-        ]
-    }
+    Fetch latest 'In Progress' Job Card for a machine and return key metrics.
+    Always returns metrics inside a 'data' key.
     """
-    if frappe.request.method != "POST":
-        frappe.throw(_("Only POST requests are allowed"), frappe.PermissionError)
-    
     try:
-        data = json.loads(frappe.request.data)
-        records = data.get("records", [])
-        
-        if not records:
-            frappe.throw(_("No records provided"))
-        
-        if len(records) > 1000:  # Limit bulk operations
-            frappe.throw(_("Cannot process more than 1000 records at once"))
-        
-        created_records = []
-        errors = []
-        
-        for i, record in enumerate(records):
-            try:
-                timestamp = record.get("timestamp")
-                device = record.get("device")
-                machine = record.get("machine")
-                message = record.get("message")
-                
-                if not all([timestamp, device, machine, message]):
-                    errors.append(f"Record {i+1}: Missing required fields")
-                    continue
-                
-                telemetry = frappe.new_doc("Telemetry")
-                telemetry.timestamp = timestamp
-                telemetry.device = device
-                telemetry.machine = machine
-                telemetry.data = message
-                
-                telemetry.insert(ignore_permissions=True)
-                created_records.append(telemetry.name)
-                
-            except Exception as e:
-                errors.append(f"Record {i+1}: {str(e)}")
-        
-        frappe.db.commit()
-        
+        job_card = frappe.get_value(
+            "Job Card",
+            filters={"machine": machine, "status": "In Progress"},
+            fieldname=[
+                "job_name",
+                "target_quantity",
+                "completed_quantity",
+                "planned_start_date_time",
+                "planned_duration"
+            ],
+            order_by="creation desc",
+            as_dict=True
+        )
+
+        if not job_card:
+            return {
+                "status": "failure",
+                "data": {
+                    "job_name": "No Job Running",
+                    "target_quantity": 0,
+                    "completed_quantity": 0,
+                    "balance_quantity": 0,
+                    "run_rate_indicator": 0,
+                    "current_time": now()
+                }
+            }
+
+        # Calculate Time Spent as difference between now and planned start time
+        planned_start_time = job_card.planned_start_date_time
+        current_time = datetime.now()
+        time_spent = current_time - planned_start_time
+        time_spent_in_seconds = time_spent.total_seconds()
+        total_time = job_card.planned_duration
+        ideal_quantity = (time_spent.total_seconds() / total_time) * job_card.target_quantity if total_time else 0
+        actual_quantity = job_card.completed_quantity or 0
+        balance_quantity = job_card.target_quantity - actual_quantity
+
+        print(f'Time Spent: {time_spent_in_seconds}, Total Time: {total_time}, Ideal Quantity: {ideal_quantity}, Actual Quantity: {actual_quantity}, Balance Quantity: {balance_quantity}')
+
+        if actual_quantity >= ideal_quantity:
+            run_rate_indicator = 1
+        else:
+            run_rate_indicator = 0
+
         return {
-            "status": "success" if not errors else "partial_success",
-            "message": f"Created {len(created_records)} records",
-            "created_count": len(created_records),
-            "error_count": len(errors),
-            "created_records": created_records,
-            "errors": errors if errors else None
+            "status": "success",
+            "data": {
+                "job_name": job_card.job_name or "",
+                "target_quantity": job_card.target_quantity or 0,
+                "completed_quantity": job_card.completed_quantity or 0,
+                "balance_quantity": balance_quantity or 0,
+                "run_rate_indicator": run_rate_indicator,
+                "current_time": now()
+            }
         }
-        
-    except Exception as e:
-        frappe.log_error(frappe.get_traceback(), "Bulk Create Telemetry Error")
-        frappe.response["http_status_code"] = 500
+
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), f"Error in get_job_metrics for machine {machine}")
         return {
             "status": "error",
-            "message": str(e)
+            "data": {
+                "job_name": "",
+                "target_quantity": 0,
+                "completed_quantity": 0,
+                "run_rate_indicator": 0
+            }
         }
+
+

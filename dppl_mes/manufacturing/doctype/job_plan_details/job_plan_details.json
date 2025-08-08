@@ -12,6 +12,7 @@
   "job_one_name",
   "job_one_number",
   "job_one_quantity",
+  "job_one_duration",
   "job_two_name",
   "job_two_number",
   "job_two_quantity"
@@ -52,10 +53,10 @@
    "options": "Job"
   },
   {
-   "columns": 1,
    "fetch_from": "job_one_name.job_number",
    "fieldname": "job_one_number",
    "fieldtype": "Data",
+   "hidden": 1,
    "in_list_view": 1,
    "label": "Job 1 Number"
   },
@@ -84,19 +85,29 @@
    "non_negative": 1
   },
   {
-   "columns": 1,
    "fetch_from": "job_two_name.job_number",
    "fieldname": "job_two_number",
    "fieldtype": "Data",
+   "hidden": 1,
    "in_list_view": 1,
    "label": "Job 2 Number"
+  },
+  {
+   "allow_in_quick_entry": 1,
+   "columns": 1,
+   "fieldname": "job_one_duration",
+   "fieldtype": "Duration",
+   "hide_days": 1,
+   "hide_seconds": 1,
+   "in_list_view": 1,
+   "label": "Job 1 Duration"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-07-02 15:39:54.674833",
+ "modified": "2025-08-07 14:10:12.773491",
  "modified_by": "Administrator",
  "module": "Manufacturing",
  "name": "Job Plan Details",

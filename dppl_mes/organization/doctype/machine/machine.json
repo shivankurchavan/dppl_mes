@@ -15,6 +15,7 @@
   "factory",
   "area",
   "sequence_number",
+  "machine_image",
   "output_related_details_section",
   "enable_output_logging",
   "device",
@@ -119,6 +120,12 @@
    "fieldtype": "Link",
    "label": "Device",
    "options": "Device"
+  },
+  {
+   "fieldname": "machine_image",
+   "fieldtype": "Attach Image",
+   "label": "Machine Image",
+   "make_attachment_public": 1
   }
  ],
  "grid_page_length": 50,
@@ -143,7 +150,7 @@
    "link_fieldname": "machine"
   }
  ],
- "modified": "2025-07-14 17:46:44.886107",
+ "modified": "2025-08-05 18:35:51.083022",
  "modified_by": "Administrator",
  "module": "Organization",
  "name": "Machine",

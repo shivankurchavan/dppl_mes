@@ -8,6 +8,7 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "overview_section",
   "machine",
   "date",
   "shift",
@@ -21,10 +22,16 @@
   "job_sequence_number",
   "shift_plan",
   "section_break_lcjb",
-  "target_run_rate",
-  "start_date_time",
-  "end_date_time",
-  "duration",
+  "plan_column",
+  "planned_start_date_time",
+  "planned_end_date_time",
+  "planned_duration",
+  "planned_run_rate",
+  "column_break_nvow",
+  "actual_start_date_time",
+  "actual_end_date_time",
+  "actual_duration",
+  "actual_run_rate",
   "connections_tab"
  ],
  "fields": [
@@ -128,30 +135,74 @@
   },
   {
    "fieldname": "section_break_lcjb",
-   "fieldtype": "Section Break"
+   "fieldtype": "Section Break",
+   "label": "Metrics"
   },
   {
-   "fetch_from": "job_name.ideal_run_rate",
+   "fieldname": "column_break_nvow",
+   "fieldtype": "Column Break",
+   "label": "Actual"
+  },
+  {
+   "description": "Output per minute",
    "fetch_if_empty": 1,
-   "fieldname": "target_run_rate",
+   "fieldname": "actual_run_rate",
    "fieldtype": "Int",
-   "label": "Target Run Rate",
+   "label": "Actual Run Rate",
    "non_negative": 1
   },
   {
-   "fieldname": "duration",
+   "fieldname": "overview_section",
+   "fieldtype": "Section Break",
+   "label": "Overview"
+  },
+  {
+   "fieldname": "plan_column",
+   "fieldtype": "Column Break",
+   "label": "Plan"
+  },
+  {
+   "fieldname": "actual_start_date_time",
+   "fieldtype": "Datetime",
+   "label": "Actual Start Date Time"
+  },
+  {
+   "fieldname": "actual_end_date_time",
+   "fieldtype": "Datetime",
+   "label": "Actual End Date Time"
+  },
+  {
+   "fieldname": "actual_duration",
    "fieldtype": "Duration",
-   "label": "Duration"
+   "hide_days": 1,
+   "hide_seconds": 1,
+   "label": "Actual Duration"
   },
   {
-   "fieldname": "end_date_time",
+   "fieldname": "planned_end_date_time",
    "fieldtype": "Datetime",
-   "label": "End Date Time"
+   "label": "Planned End Date Time"
   },
   {
-   "fieldname": "start_date_time",
+   "fieldname": "planned_start_date_time",
    "fieldtype": "Datetime",
-   "label": "Start Date Time"
+   "label": "Planned Start Date Time"
+  },
+  {
+   "fieldname": "planned_duration",
+   "fieldtype": "Duration",
+   "hide_days": 1,
+   "hide_seconds": 1,
+   "label": "Planned Duration"
+  },
+  {
+   "description": "Output per minute",
+   "fetch_from": "job_name.ideal_run_rate",
+   "fetch_if_empty": 1,
+   "fieldname": "planned_run_rate",
+   "fieldtype": "Int",
+   "label": "Planned Run Rate",
+   "non_negative": 1
   }
  ],
  "grid_page_length": 50,
@@ -163,7 +214,7 @@
    "link_fieldname": "job_card"
   }
  ],
- "modified": "2025-08-04 21:42:10.241678",
+ "modified": "2025-08-07 18:07:08.917426",
  "modified_by": "Administrator",
  "module": "Manufacturing",
  "name": "Job Card",

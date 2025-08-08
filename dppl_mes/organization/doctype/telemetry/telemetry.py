@@ -9,7 +9,6 @@ import json
 
 class Telemetry(Document):
 	def before_save(self):
-		print('Running Before Save Function')
 		timestamp = self.timestamp
 		machine = self.machine
 		data_str = self.data
@@ -20,16 +19,13 @@ class Telemetry(Document):
 			frappe.log_error(frappe.get_traceback(), "JSON Decoding Error")
 
 		if "output" in data:
-			print('output key exists')
 			try:
 				output_raw = data["output"]
-				print(f'Raw output value: "{output_raw}"')
 				if output_raw is None or output_raw == '' or str(output_raw).strip() == '':
 					print('Empty or invalid output value detected, skipping output processing')
 					return
 				output_value = int(output_raw)
 				run_rate_value = float(data["run_rate"])
-				
 				self.create_output_log(output_value,run_rate_value, timestamp, machine)
 			except Exception as e:
 				frappe.log_error(frappe.get_traceback(), "Output Parsing Error")
@@ -91,7 +87,7 @@ class Telemetry(Document):
 					if job_completed_qty > 0 and output_value < job_completed_qty:
 						print('Output Value Reset Detected, Updating Job Status to Completed')
 						active_job_doc.status = "Completed"
-						active_job_doc.end_date_time = now()
+						active_job_doc.actual_end_date_time = now()
 						active_job_doc.save()
 						frappe.db.commit()
 						if output_value > 0:
@@ -102,8 +98,14 @@ class Telemetry(Document):
 			else:
 				print('Active Job Not Found, Trying To Start New Job')
 				if output_value > 0:
-					new_job = self.start_job(machine)
-					return new_job
+					print('Output Value Detected, Checking Previous Job Completion')
+					previous_job_counter_reset = previous_job_counter_reset_function(machine, active_job, output_value)
+					if previous_job_counter_reset == False:
+						print('Counter of Previous Job Still Coming. Not Starting New Job')
+						return None
+					else:
+						new_job = self.start_job(machine)
+						return new_job
 				else:
 					return None
 				
@@ -186,7 +188,7 @@ class Telemetry(Document):
 			if job_seq_1 and job_seq_1.status == "Not Started":
 				job_card = frappe.get_doc("Job Card", job_seq_1.name)
 				job_card.status = "In Progress"
-				job_card.start_date_time = now()
+				job_card.actual_start_date_time = now()
 				job_card.save()
 				return job_card.name
 			else:
@@ -195,7 +197,7 @@ class Telemetry(Document):
 				if job_seq_2 and job_seq_2.status == "Not Started":
 					job_card = frappe.get_doc("Job Card", job_seq_2.name)
 					job_card.status = "In Progress"
-					job_card.start_date_time = now()
+					job_card.actual_start_date_time = now()
 					job_card.save()
 					return job_card.name
 				else:
@@ -266,3 +268,23 @@ def to_time(val):
         seconds = total_seconds % 60
         return time(hour=hours, minute=minutes, second=seconds)
     return datetime.strptime(str(val), "%H:%M:%S").time()
+
+def previous_job_counter_reset_function(machine, active_job, output_value):
+	"""
+	requirements:
+	1. Get the job card document previous to the active job
+	2. Check if the previous job completed quantity is same as job_completed_qty
+	3. if yes then return true else return false
+	"""
+	previous_job = frappe.get_all(
+		"Job Card",
+		filters={"machine": machine, "status": "Completed"},
+		order_by="end_date_time desc",
+		fields=["completed_quantity"],
+		limit=1
+	)
+	if previous_job:
+		print(f'Previous Job Found: {previous_job}')
+		if previous_job[0].completed_quantity == output_value:
+			print('Previous Job Completed Quantity Matches Output Value')
+			return False
