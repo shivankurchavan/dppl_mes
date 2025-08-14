@@ -16,5 +16,6 @@ declare module 'vue' {
     MachineDetails: typeof import('./src/components/MachineDetails.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    UpdateReasonDialog: typeof import('./src/components/UpdateReasonDialog.vue')['default']
   }
 }

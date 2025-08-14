@@ -31,9 +31,9 @@
         <table>
           <thead>
             <tr>
-              <th>Date</th>
+              <th>ID</th>
+              <th>Created At</th>
               <th>Start Time</th>
-              <th>End Time</th>
               <th>Duration</th>
               <th>Status</th>
               <th>Reason</th>
@@ -42,13 +42,26 @@
           </thead>
           <tbody>
             <tr v-for="(entry, index) in visibleTableData" :key="index">
+              <td>{{ entry.name }}</td>
               <td>{{ entry.created_date }}</td>
-              <td>{{ entry.start_date_time }}</td>
-              <td>{{ entry.end_date_time || 'N/A' }}</td>
+              <td>{{ entry.start_date_time || 'N/A' }}</td>
               <td>{{ entry.duration }}</td>
-              <td>{{ entry.status }}</td>
-              <td>{{ entry.reason || 'N/A' }}</td>
-              <td><button class="action-btn">Update Reason</button></td>
+              <td>
+                <span :class="['status', entry.status === 'Open' ? 'stopped' : 'running']">
+                  {{ entry.status }}
+                </span>
+              </td>              
+              <td>{{ entry.reaon || 'N/A' }}</td>
+              <td>
+                <button
+                  class="action-btn"
+                  :disabled="entry.status === 'Closed'"
+                  :style="entry.status === 'Closed' ? 'opacity:0.5;cursor:not-allowed;' : ''"
+                  @click="openUpdateDialog(entry)"
+                >
+                  Update Reason
+                </button>
+              </td>
             </tr>
             <tr class="load-more" v-if="visibleCount < tableData.length">
               <td colspan="7">
@@ -66,6 +79,15 @@
     <div v-else class="no-data-message">
       Machine not found.
     </div>
+
+    <!-- Update Reason Dialog -->
+    <UpdateReasonDialog
+      :visible="showUpdateDialog"
+      :downtimeId="selectedDowntime?.name"
+      @update="handleReasonUpdate"
+      @cancel="closeUpdateDialog"
+    />
+
   </div>
 </template>
 
@@ -74,16 +96,20 @@ import { ref, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { createDocumentResource, createListResource } from 'frappe-ui';
 import machineImage from '../assets/image.png';
+import UpdateReasonDialog from './UpdateReasonDialog.vue';
 
 // Router setup
 const route = useRoute();
-const router = useRouter();
 const machineId = computed(() => route.params.id);
+
+const showUpdateDialog = ref(false);
+const selectedDowntime = ref(null);
+
 
 // Reactive state
 const error = ref(null);
 const machine = ref(null); // ✅ Fixed: Uncommented this line
-// const tableData = ref([]);
+const tableData = ref([]);
 const loading = ref(false);
 
 const visibleCount = ref(4);
@@ -95,6 +121,16 @@ const loadMore = () => {
   visibleCount.value += 4;
 };
 
+const openUpdateDialog = (entry) => {
+  selectedDowntime.value = entry;
+  showUpdateDialog.value = true;
+};
+
+const closeUpdateDialog = () => {
+  showUpdateDialog.value = false;
+  selectedDowntime.value = null;
+};
+
 // ✅ Fixed: Proper resource initialization and data fetching
 watch(
   () => machineId.value,
@@ -103,7 +139,7 @@ watch(
       error.value = 'No machine ID provided in the URL.';
       return;
     }
-    console.log('Fetching details for machine ID:', newId);
+    // console.log('Fetching details for machine ID:', newId);
     // Reset state
     error.value = null;
     machine.value = null; // ✅ Fixed: Uncommented this line
@@ -118,32 +154,33 @@ watch(
         auto: false,
       });
 
-      console.log('Machine resource created:', machineResource);
+      // console.log('Machine resource created:', machineResource);
 
       // ✅ Fixed: Proper downtime resource configuration
       const downtimeResource = createListResource({
         doctype: 'Downtime Log',
-        // fields: ['created_date', 'start_date_time', 'end_date_time', 'duration', 'status', 'reason'],
-        // filters: {
-        //   machine: newId // ✅ Fixed: Proper filters object
-        // },
+        //  machine: newId,
+        fields: ['name','created_date', 'start_date_time', 'end_date_time', 'duration', 'status', 'reaon'],
+        filters: {
+          machine: newId
+        },
         // orderBy: 'created_date desc',
+        // Use the actual string value, not computed
         auto: true,
       });
 
-      const downtimereason = createListResource({
-        doctype: 'Downtime Reason',
-        auto: true,
-      });
+      // const downtimereason = createListResource({
+      //   doctype: 'Downtime Reason',
+      //   auto: true,
+      // });
 
 
-      console.log('Downtime resource created:', downtimeResource);
       
       // ✅ Fixed: Actually reload the machine resource
       await machineResource.reload();
       
       if (machineResource.doc) {
-        console.log('Machine doc found:', machineResource.doc);
+        // console.log('Machine doc found:', machineResource.doc);
         
         // ✅ Fixed: Assign to the reactive machine ref, not a local variable
         machine.value = {
@@ -155,13 +192,14 @@ watch(
           oem_code: machineResource.doc.oem_code,
         };
 
-        console.log('Machine value set:', machine.value);
+        // console.log('Machine value set:', machine.value);
 
-        console.log('Downtime reason resource created:', downtimereason);
+        // console.log('Downtime reason resource created:', downtimereason);
 
 
         // Fetch downtime logs after machine is loaded
-        // await downtimeResource.reload();
+        await downtimeResource.reload();
+        // console.log('Downtime resource created:', downtimeResource);
         if (downtimeResource.data) {
           tableData.value = downtimeResource.data;
           console.log('Table data set:', tableData.value);
@@ -179,6 +217,18 @@ watch(
   },
   { immediate: true }
 );
+
+
+const handleReasonUpdate = ({ downtimeId, reason }) => {
+  // Update local table data
+  const index = tableData.value.findIndex((entry) => entry.name === downtimeId);
+  if (index !== -1) {
+    tableData.value[index].reason = reason;
+  }
+  closeUpdateDialog();
+};
+
+
 </script>
 
 <style scoped>

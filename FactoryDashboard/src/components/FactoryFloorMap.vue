@@ -1,53 +1,140 @@
 <template>
-  <div class="factory-dashboard">
-    <div class="canvas-container">
-      <v-stage
-        ref="stage"
-        :config="stageConfig"
-        @wheel="handleWheel"
+  <v-stage :config="stageSize">
+    <v-layer>
+      <v-image
+        v-if="backgroundImage"
+        :config="floorPlanConfig"
+      />
+    </v-layer>
+    <v-layer>
+      <v-line
+        v-for="(area, key) in areas"
+        :key="key"
+        :config="{
+          points: area.points,
+          fill: area.color,
+          opacity: hoveredArea === key ? 0.5 : 0,
+          closed: true
+        }"
+        @mouseover="handleMouseOver(key)"
+        @mouseout="handleMouseOut"
+        @mousemove="(e) => handleMouseMove(e, key)"
+      />
+    </v-layer>
+    <v-layer>
+      <v-label
+        :config="{
+          x: tooltipProps.x,
+          y: tooltipProps.y,
+          opacity: 0.75,
+          visible: tooltipProps.visible
+        }"
       >
-        <!-- SVG Floor Plan Background Layer -->
-        <v-layer ref="backgroundLayer">
-          <v-image
-            v-if="floorPlanImage"
-            :config="floorPlanConfig"
-          />
-          <!-- Optional overlay for better visibility -->
-          <v-rect
-            :config="overlayConfig"
-          />
-        </v-layer>
-      </v-stage>
-    </div>
-  </div>
+        <v-tag
+          :config="{
+            fill: 'black',
+            pointerDirection: 'down',
+            pointerWidth: 10,
+            pointerHeight: 10,
+            lineJoin: 'round',
+            shadowColor: 'black',
+            shadowBlur: 10,
+            shadowOffsetX: 10,
+            shadowOffsetY: 10,
+            shadowOpacity: 0.5
+          }"
+        />
+        <v-text
+          :config="{
+            text: tooltipProps.text,
+            fontFamily: 'Calibri',
+            fontSize: 18,
+            padding: 5,
+            fill: 'white'
+          }"
+        />
+      </v-label>
+    </v-layer>
+  </v-stage>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useFloorPlan } from '../composables/useFloorplan.js'
+import { ref, watch, computed } from 'vue';
+import { useImage } from 'vue-konva';
 
-// Stage configuration with zoom and pan
-const stageConfig = ref({
+const stageSize = {
   width: window.innerWidth,
-  height: window.innerHeight,
-  scaleX: 1,
-  scaleY: 1,
-  x: 0,
-  y: 0,
-  draggable: true
-})
+  height: window.innerHeight
+};
 
-// Floor plan configuration
-const { floorPlanImage, loadFloorPlanAsModule } = useFloorPlan()
+const [backgroundImage] = useImage('./src/assets/floor-plan.svg');
 
+
+// Reactive object to store image dimensions
+const imageDimensions = ref({
+  width: 0,
+  height: 0
+});
+
+// Watch for changes to backgroundImage to update dimensions
+// watch(
+//   () => backgroundImage.value,
+//   (newImage) => {
+//     if (newImage && newImage.complete) {
+//       // Image is already loaded
+//       imageDimensions.value = {
+//         width: newImage.naturalWidth,
+//         height: newImage.naturalHeight
+//       };
+//       console.log('Image loaded - Natural Width:', newImage.naturalWidth);
+//       console.log('Image loaded - Natural Height:', newImage.naturalHeight);
+//     } else if (newImage) {
+//       // Image exists but not yet loaded
+//       newImage.onload = () => {
+//         imageDimensions.value = {
+//           width: newImage.naturalWidth,
+//           height: newImage.naturalHeight
+//         };
+//         console.log('Image loaded (onload) - Natural Width:', newImage.naturalWidth);
+//         console.log('Image loaded (onload) - Natural Height:', newImage.naturalHeight);
+//       };
+//       newImage.onerror = () => {
+//         console.error('Failed to load image at ./src/assets/floor-plan.svg');
+//       };
+//     } else {
+//       console.warn('backgroundImage is null or undefined');
+//     }
+//   },
+//   { immediate: true } // Run immediately to check initial state
+// );
+
+const getData = () => ({
+  '1st Floor': {
+    color: 'blue',
+    points: [366, 298, 500, 284, 499, 204, 352, 183, 72, 228, 74, 274],
+  },
+  '2nd Floor': {
+    color: 'red',
+    points: [72, 228, 73, 193, 340, 96, 498, 154, 498, 191, 341, 171],
+  },
+  '3rd Floor': {
+    color: 'yellow',
+    points: [73, 192, 73, 160, 340, 23, 500, 109, 499, 139, 342, 93],
+  },
+  Gym: {
+    color: 'green',
+    points: [498, 283, 503, 146, 560, 136, 576, 144, 576, 278, 500, 283],
+  },
+});
+
+// Optional: Computed property for scaling the image (uncomment and adapt if needed)
 const floorPlanConfig = computed(() => {
-  if (!floorPlanImage.value) return {};
+  if (!backgroundImage.value) return {};
 
-  const imageWidth = floorPlanImage.value.naturalWidth;
-  const imageHeight = floorPlanImage.value.naturalHeight;
-
-  const stageWidth = stageConfig.value.width;
-  const stageHeight = stageConfig.value.height;
+  const imageWidth = backgroundImage.value.naturalWidth;
+  const imageHeight = backgroundImage.value.naturalHeight;
+  const stageWidth = stageSize.width;
+  const stageHeight = stageSize.height;
 
   // Calculate scale factor to fit rotated image into stage
   const scaleX = stageWidth / imageHeight;
@@ -58,7 +145,7 @@ const floorPlanConfig = computed(() => {
   const scaledHeight = imageHeight * scale;
 
   return {
-    image: floorPlanImage.value,
+    image: backgroundImage.value,
     x: stageWidth / 2,
     y: stageHeight / 2,
     width: scaledWidth,
@@ -70,74 +157,32 @@ const floorPlanConfig = computed(() => {
   };
 });
 
-// Semi-transparent overlay for better machine visibility
-const overlayConfig = computed(() => {
-    if (!floorPlanConfig.value.width) return {};
-    return {
-        x: floorPlanConfig.value.x,
-        y: floorPlanConfig.value.y,
-        width: floorPlanConfig.value.width,
-        height: floorPlanConfig.value.height,
-        offsetX: floorPlanConfig.value.offsetX,
-        offsetY: floorPlanConfig.value.offsetY,
-        rotation: floorPlanConfig.value.rotation,
-        fill: 'rgba(255, 255, 255, 0.1)',
-        listening: false,
-    };
+const areas = getData();
+const hoveredArea = ref(null);
+const tooltipProps = ref({
+  visible: false,
+  x: 0,
+  y: 0,
+  text: '',
 });
 
-// Event handlers
-const handleWheel = (e) => {
-  e.evt.preventDefault()
-  
-  const scaleBy = 1.05
-  const stage = e.target.getStage()
-  const oldScale = stage.scaleX()
-  const pointer = stage.getPointerPosition()
-  
-  const newScale = e.evt.deltaY > 0 ? oldScale * scaleBy : oldScale / scaleBy
-  
-  // Limit zoom
-  if (newScale < 0.5 || newScale > 3) return
-  
-  const mousePointTo = {
-    x: (pointer.x - stage.x()) / oldScale,
-    y: (pointer.y - stage.y()) / oldScale
-  }
-  
-  const newPos = {
-    x: pointer.x - mousePointTo.x * newScale,
-    y: pointer.y - mousePointTo.y * newScale
-  }
-  
-  stageConfig.value.scaleX = newScale
-  stageConfig.value.scaleY = newScale
-  stageConfig.value.x = newPos.x
-  stageConfig.value.y = newPos.y
-}
+const handleMouseOver = (key) => {
+  hoveredArea.value = key;
+};
 
-// Initialize
-onMounted(async () => {
-  await loadFloorPlanAsModule() // Use the module loader
-})
+const handleMouseOut = () => {
+  hoveredArea.value = null;
+  tooltipProps.value.visible = false;
+};
+
+const handleMouseMove = (e, key) => {
+  const stage = e.target.getStage();
+  const mousePos = stage.getPointerPosition();
+  tooltipProps.value = {
+    visible: true,
+    x: mousePos.x,
+    y: mousePos.y - 5,
+    text: key,
+  };
+};
 </script>
-
-<style scoped>
-.factory-dashboard {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  background: #f8f9fa;
-}
-
-.canvas-container {
-  flex: 1;
-  overflow: auto;
-  position: relative;
-  cursor: grab;
-}
-
-.canvas-container:active {
-  cursor: grabbing;
-}
-</style>

@@ -57,12 +57,13 @@ watch(() => route.name, (newName) => {
 }, { immediate: true });
 
 const toggleView = () => {
-  if (isFloorMapView.value) {
+  if (route.name === 'FactoryFloorMap') {
     router.push({ name: 'Dashboard' });
   } else {
     router.push({ name: 'FactoryFloorMap' });
   }
 };
+
 
 const goBackToDashboard = () => {
   router.push({ name: 'Dashboard' });
@@ -83,8 +84,8 @@ const areaResource = createListResource({
   auto: true,
 });
 
-console.log('Factory Resource:', factoryResource);
-console.log('Area Resource:', areaResource);
+// console.log('Factory Resource:', factoryResource);
+// console.log('Area Resource:', areaResource);
 
 const factoryOptions = ref([]);
 const areaOptions = ref([]);
