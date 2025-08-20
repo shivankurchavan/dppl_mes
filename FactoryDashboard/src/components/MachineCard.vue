@@ -4,7 +4,7 @@
     <div class="machine-details">
       <p><strong>Machine: </strong> {{ machine.name }}</p>
       <p><strong>OEM Code: </strong> {{ machine.oem_code || 'N/A' }}</p>
-      <p><strong>Status: </strong> {{ machine.status }}</p>
+      <!-- <p><strong>Status: </strong> {{ machine.status }}</p> // telemetry or downtimw  -->
     </div>
   </div>
 </template>

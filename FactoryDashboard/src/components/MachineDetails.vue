@@ -97,6 +97,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { createDocumentResource, createListResource } from 'frappe-ui';
 import machineImage from '../assets/image.png';
 import UpdateReasonDialog from './UpdateReasonDialog.vue';
+import { checkRunningStatus } from '../utils/machineStatus'; 
 
 // Router setup
 const route = useRoute();
@@ -186,7 +187,7 @@ watch(
         machine.value = {
           id: machineResource.doc.machine_name,
           name: machineResource.doc.machine_name,
-          status: machineResource.doc.is_active ? 'running' : 'stopped',
+          status: await checkRunningStatus(newId),
           factory: machineResource.doc.factory,
           area: machineResource.doc.area,
           oem_code: machineResource.doc.oem_code,

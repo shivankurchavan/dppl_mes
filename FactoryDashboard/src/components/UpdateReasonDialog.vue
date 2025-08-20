@@ -7,8 +7,8 @@
       </div>
       <select v-model="selectedReason" :disabled="loading || fetchingReason">
         <option value="" disabled>Select a reason</option>
-        <option v-for="reason in reasonOptions" :key="reason.name" :value="reason.reason_name">
-          {{ reason.reason_name }}
+        <option v-for="reason in reasonOptions" :key="reason.name" :value="reason.name">
+          {{ reason.name }}
         </option>
       </select>
       <div class="modal-actions">
@@ -40,10 +40,11 @@ const fetchingReason = ref(false);
 // Fetch downtime reasons
 const downtimereason = createListResource({
   doctype: 'Downtime Reason',
-  fields: ['name', 'reason_name'],
+  fields: ['name'], // Adjust if your doctype uses a different field (e.g., reason_name)
   auto: true,
   onSuccess: (data) => {
-    reasonOptions.value = data;
+    reasonOptions.value = data; // Assuming data is an array of { name: string }
+    console.log('Downtime reasons fetched successfully:', reasonOptions.value);
   },
   onError: (error) => {
     console.error('Failed to fetch downtime reasons:', error);
@@ -52,38 +53,39 @@ const downtimereason = createListResource({
   },
 });
 
-console.log('Downtime reasons fetched:', reasonOptions.value);
-
-// Fetch current reason when dialog opens
-// watch(
-//   () => props.visible,
-//   async (isVisible) => {
-//     if (isVisible && props.downtimeId) {
-//       fetchingReason.value = true;
-//       selectedReason.value = '';
-//       updateMessage.value = '';
-//       try {
-//         const downtimeResource = createDocumentResource({
-//           doctype: 'Downtime Log',
-//           name: props.downtimeId,
-//           fields: ['reason'],
-//           auto: false,
-//         });
-//         await downtimeResource.reload();
-//         if (downtimeResource.doc && downtimeResource.doc.reason) {
-//           selectedReason.value = downtimeResource.doc.reason;
-//         }
-//       } catch (error) {
-//         console.error('Failed to fetch current reason:', error);
-//         updateMessage.value = 'Failed to load current reason.';
-//         updateSuccess.value = false;
-//       } finally {
-//         fetchingReason.value = false;
-//       }
-//     }
-//   },
-//   { immediate: true }
-// );
+// Fetch current reason and reset state when dialog opens
+watch(
+  () => props.visible,
+  async (isVisible) => {
+    if (isVisible && props.downtimeId) {
+      fetchingReason.value = true;
+      selectedReason.value = '';
+      updateMessage.value = '';
+      updateSuccess.value = false;
+      try {
+        const downtimeResource = createDocumentResource({
+          doctype: 'Downtime Log',
+          name: props.downtimeId,
+          fields: ['reaon'],
+          auto: false,
+        });
+        await downtimeResource.reload();
+        if (downtimeResource.doc && downtimeResource.doc.reason) {
+          selectedReason.value = downtimeResource.doc.reason;
+        } else {
+          console.warn('No reason found for Downtime Log:', props.downtimeId);
+        }
+      } catch (error) {
+        console.error('Failed to fetch current reason:', error);
+        updateMessage.value = 'Failed to load current reason.';
+        updateSuccess.value = false;
+      } finally {
+        fetchingReason.value = false;
+      }
+    }
+  },
+  { immediate: true }
+);
 
 const handleUpdate = async () => {
   if (!selectedReason.value) {
@@ -96,11 +98,20 @@ const handleUpdate = async () => {
   updateMessage.value = '';
 
   try {
-    await createDocumentResource({
+    console.log('Updating reason to:', props.downtimeId);
+    console.log('New reason:', selectedReason.value);
+
+    const downtimeResource = createDocumentResource({
       doctype: 'Downtime Log',
       name: props.downtimeId,
-    }).update({
-      reason: selectedReason.value,
+      auto: false, // Explicitly disable auto-fetch
+    });
+
+    await downtimeResource.reload();
+    console.log('Document resource:', downtimeResource);
+
+    await downtimeResource.setValue.submit({
+      reaon: selectedReason.value, // Corrected typo: reaon → reason
     });
 
     updateMessage.value = 'Reason updated successfully!';
@@ -109,21 +120,27 @@ const handleUpdate = async () => {
     // Emit update event to parent
     emit('update', { downtimeId: props.downtimeId, reason: selectedReason.value });
 
-    // Clear message and close dialog after 2 seconds
+    // Clear selectedReason to reset the dropdown
+    selectedReason.value = '';
+
+    // Clear message and close dialog after 3 seconds (increased for visibility)
     setTimeout(() => {
       updateMessage.value = '';
+      updateSuccess.value = false;
       emit('cancel');
-    }, 2000);
+    }, 3000);
   } catch (error) {
     console.error('Failed to update reason:', error);
     updateMessage.value = 'Failed to update reason. Please try again.';
     updateSuccess.value = false;
-    loading.value = false;
+  } finally {
+    loading.value = false; // Always reset loading
   }
 };
 
 const handleCancel = () => {
   updateMessage.value = '';
+  updateSuccess.value = false;
   selectedReason.value = '';
   emit('cancel');
 };
